@@ -909,11 +909,7 @@ impl Timeline {
     /// }
     /// ```
     pub async fn canonical_items(&self) -> Vec<canonical::CanonicalMessage> {
-        // Epic 1 POC: Canonical state is not yet integrated with controller.
-        // This is a placeholder that returns an empty vec.
-        // Full implementation requires adding CanonicalTimelineState to
-        // TimelineController and processing events through adapters.
-        vec![]
+        self.controller.canonical_items().await
     }
 
     /// Subscribe to canonical timeline updates.
@@ -952,10 +948,7 @@ impl Timeline {
     pub async fn subscribe_canonical(
         &self,
     ) -> (Vec<canonical::CanonicalMessage>, tokio::sync::broadcast::Receiver<canonical::CanonicalDelta>) {
-        // Epic 1 POC: Canonical state is not yet integrated.
-        // This is a placeholder implementation.
-        let (tx, rx) = tokio::sync::broadcast::channel(128);
-        (vec![], rx)
+        self.controller.subscribe_canonical().await
     }
 
     /// Get a canonical message by event ID.
@@ -966,9 +959,8 @@ impl Timeline {
     /// # Epic 1 POC Limitations
     ///
     /// Same as [`canonical_items`].
-    pub async fn canonical_item_by_id(&self, event_id: &ruma::EventId) -> Option<canonical::CanonicalMessage> {
-        // Epic 1 POC: Placeholder implementation.
-        None
+    pub async fn canonical_item_by_id(&self, event_id: &EventId) -> Option<canonical::CanonicalMessage> {
+        self.controller.canonical_item_by_id(event_id).await
     }
 }
 

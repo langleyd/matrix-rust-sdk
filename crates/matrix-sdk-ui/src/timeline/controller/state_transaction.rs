@@ -61,6 +61,10 @@ pub(in crate::timeline) struct TimelineStateTransaction<'a, P: RoomDataProvider>
 
     /// The kind of focus of this timeline.
     pub focus: &'a TimelineFocusKind<P>,
+
+    /// Canonical timeline state (Epic 1 POC).
+    #[cfg(feature = "experimental-canonical-timeline")]
+    pub(super) canonical_state: Option<&'a std::sync::Arc<std::sync::Mutex<crate::timeline::canonical::CanonicalTimelineState>>>,
 }
 
 impl<'a, P: RoomDataProvider> TimelineStateTransaction<'a, P> {
@@ -69,6 +73,8 @@ impl<'a, P: RoomDataProvider> TimelineStateTransaction<'a, P> {
         items: &'a mut ObservableItems,
         meta: &'a mut TimelineMetadata,
         focus: &'a TimelineFocusKind<P>,
+        #[cfg(feature = "experimental-canonical-timeline")]
+        canonical_state: Option<&'a std::sync::Arc<std::sync::Mutex<crate::timeline::canonical::CanonicalTimelineState>>>,
     ) -> Self {
         let previous_meta = meta;
         let meta = previous_meta.clone();
@@ -80,6 +86,8 @@ impl<'a, P: RoomDataProvider> TimelineStateTransaction<'a, P> {
             previous_meta,
             meta,
             focus,
+            #[cfg(feature = "experimental-canonical-timeline")]
+            canonical_state,
         }
     }
 
@@ -204,6 +212,10 @@ impl<'a, P: RoomDataProvider> TimelineStateTransaction<'a, P> {
                 return;
             }
         };
+
+        // Epic 1 POC: Process event through canonical timeline adapters
+        #[cfg(feature = "experimental-canonical-timeline")]
+        self.process_canonical_timeline_event(&deserialized);
 
         let sender = deserialized.sender().to_owned();
         let timestamp = deserialized.origin_server_ts();
@@ -1026,6 +1038,44 @@ impl<'a, P: RoomDataProvider> TimelineStateTransaction<'a, P> {
                 let item = item.with_kind(cloned_event);
                 self.items.replace(idx, item);
             }
+        }
+    }
+
+    /// Process an event through canonical timeline adapters (Epic 1 POC).
+    #[cfg(feature = "experimental-canonical-timeline")]
+    fn process_canonical_timeline_event(&mut self, event: &AnySyncTimelineEvent) {
+        use crate::timeline::canonical::{AdapterContext, EventAdapter, EditAdapter, MessageAdapter};
+
+        if let Some(ref canonical_state_arc) = self.canonical_state {
+            let mut canonical_state = canonical_state_arc.lock().unwrap();
+
+            // Allocate a stable ordering key for this event
+            let ordering_key = canonical_state.next_ordering_key();
+
+            // Create adapter context
+            let mut context = AdapterContext {
+                state: &mut *canonical_state,
+                ordering_key,
+            };
+
+            // Process through adapters (order matters: message first, then edits)
+            let message_adapter = MessageAdapter::new();
+            let edit_adapter = EditAdapter::new();
+
+            // Try message adapter first
+            if message_adapter.process(event, &mut context) {
+                trace!("Canonical timeline: processed message event");
+                return;
+            }
+
+            // Try edit adapter
+            if edit_adapter.process(event, &mut context) {
+                trace!("Canonical timeline: processed edit event");
+                return;
+            }
+
+            // Event not handled by any adapter
+            trace!("Canonical timeline: event not handled by adapters");
         }
     }
 }

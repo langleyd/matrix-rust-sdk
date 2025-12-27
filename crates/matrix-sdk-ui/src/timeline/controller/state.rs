@@ -46,6 +46,10 @@ pub(in crate::timeline) struct TimelineState<P: RoomDataProvider> {
 
     /// The kind of focus of this timeline.
     pub(super) focus: Arc<TimelineFocusKind<P>>,
+
+    /// Canonical timeline state (Epic 1 POC).
+    #[cfg(feature = "experimental-canonical-timeline")]
+    pub(super) canonical_state: Option<Arc<std::sync::Mutex<crate::timeline::canonical::CanonicalTimelineState>>>,
 }
 
 impl<P: RoomDataProvider> TimelineState<P> {
@@ -67,6 +71,10 @@ impl<P: RoomDataProvider> TimelineState<P> {
                 is_room_encrypted,
             ),
             focus,
+            #[cfg(feature = "experimental-canonical-timeline")]
+            canonical_state: Some(Arc::new(std::sync::Mutex::new(
+                crate::timeline::canonical::CanonicalTimelineState::new(),
+            ))),
         }
     }
 
@@ -250,6 +258,12 @@ impl<P: RoomDataProvider> TimelineState<P> {
     }
 
     pub(super) fn transaction(&mut self) -> TimelineStateTransaction<'_, P> {
-        TimelineStateTransaction::new(&mut self.items, &mut self.meta, &*self.focus)
+        TimelineStateTransaction::new(
+            &mut self.items,
+            &mut self.meta,
+            &*self.focus,
+            #[cfg(feature = "experimental-canonical-timeline")]
+            self.canonical_state.as_ref(),
+        )
     }
 }
