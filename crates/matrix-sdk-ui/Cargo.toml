@@ -32,6 +32,11 @@ experimental-encrypted-state-events = [
     "ruma/unstable-msc4362"
 ]
 
+# Enable experimental canonical timeline POC (Epic 1).
+# Provides stable ordering and unified edit handling for timeline items.
+# This is a proof-of-concept and may change or be removed.
+experimental-canonical-timeline = []
+
 [dependencies]
 as_variant.workspace = true
 async-rx.workspace = true

@@ -69,6 +69,8 @@ use crate::timeline::controller::CryptoDropHandles;
 
 mod algorithms;
 mod builder;
+#[cfg(feature = "experimental-canonical-timeline")]
+pub mod canonical;
 mod controller;
 mod date_dividers;
 mod error;
@@ -877,6 +879,96 @@ impl Timeline {
     /// from a permalink to a threaded event).
     pub fn is_threaded(&self) -> bool {
         self.controller.is_threaded()
+    }
+}
+
+/// Experimental canonical timeline API (Epic 1 POC).
+///
+/// These methods are gated behind the `experimental-canonical-timeline` feature
+/// flag and may change or be removed in future versions.
+#[cfg(feature = "experimental-canonical-timeline")]
+impl Timeline {
+    /// Get a snapshot of all canonical timeline items.
+    ///
+    /// Returns items in stable chronological order, with no position changes
+    /// due to decryption or edits.
+    ///
+    /// # Epic 1 POC Limitations
+    ///
+    /// - In-memory only (no persistence)
+    /// - Basic message events only
+    /// - Legacy edits only (reactions deferred to Epic 2)
+    /// - No thread semantics
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// let items = timeline.canonical_items().await;
+    /// for item in items {
+    ///     println!("{}: {}", item.sender, item.content.body);
+    /// }
+    /// ```
+    pub async fn canonical_items(&self) -> Vec<canonical::CanonicalMessage> {
+        // Epic 1 POC: Canonical state is not yet integrated with controller.
+        // This is a placeholder that returns an empty vec.
+        // Full implementation requires adding CanonicalTimelineState to
+        // TimelineController and processing events through adapters.
+        vec![]
+    }
+
+    /// Subscribe to canonical timeline updates.
+    ///
+    /// Returns a tuple of (initial snapshot, delta stream). The delta stream
+    /// emits incremental changes (Insert, Update, Remove, Reset) as new events
+    /// arrive, decrypt, or are edited.
+    ///
+    /// # Epic 1 POC Limitations
+    ///
+    /// Same as [`canonical_items`].
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// let (initial_items, mut updates) = timeline.subscribe_canonical().await;
+    ///
+    /// // Process initial items
+    /// for item in initial_items {
+    ///     display_message(&item);
+    /// }
+    ///
+    /// // React to updates
+    /// while let Some(delta) = updates.next().await {
+    ///     match delta {
+    ///         CanonicalDelta::Insert { position, item } => {
+    ///             insert_at_position(position, item);
+    ///         }
+    ///         CanonicalDelta::Update { position, item } => {
+    ///             update_at_position(position, item);
+    ///         }
+    ///         _ => {}
+    ///     }
+    /// }
+    /// ```
+    pub async fn subscribe_canonical(
+        &self,
+    ) -> (Vec<canonical::CanonicalMessage>, tokio::sync::broadcast::Receiver<canonical::CanonicalDelta>) {
+        // Epic 1 POC: Canonical state is not yet integrated.
+        // This is a placeholder implementation.
+        let (tx, rx) = tokio::sync::broadcast::channel(128);
+        (vec![], rx)
+    }
+
+    /// Get a canonical message by event ID.
+    ///
+    /// Returns None if the event is not in the canonical timeline or hasn't
+    /// been processed yet.
+    ///
+    /// # Epic 1 POC Limitations
+    ///
+    /// Same as [`canonical_items`].
+    pub async fn canonical_item_by_id(&self, event_id: &ruma::EventId) -> Option<canonical::CanonicalMessage> {
+        // Epic 1 POC: Placeholder implementation.
+        None
     }
 }
 
