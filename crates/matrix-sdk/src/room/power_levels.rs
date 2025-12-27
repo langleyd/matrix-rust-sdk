@@ -23,39 +23,28 @@ use crate::Result;
 pub struct RoomPowerLevelChanges {
     // Actions
     /// The level required to ban a user.
-    #[cfg_attr(feature = "uniffi", uniffi(default = None))]
     pub ban: Option<i64>,
     /// The level required to invite a user.
-    #[cfg_attr(feature = "uniffi", uniffi(default = None))]
     pub invite: Option<i64>,
     /// The level required to kick a user.
-    #[cfg_attr(feature = "uniffi", uniffi(default = None))]
     pub kick: Option<i64>,
     /// The level required to redact an event.
-    #[cfg_attr(feature = "uniffi", uniffi(default = None))]
     pub redact: Option<i64>,
 
     // Events
     /// The default level required to send message events.
-    #[cfg_attr(feature = "uniffi", uniffi(default = None))]
     pub events_default: Option<i64>,
     /// The default level required to send state events.
-    #[cfg_attr(feature = "uniffi", uniffi(default = None))]
     pub state_default: Option<i64>,
     /// The default power level for every user in the room.
-    #[cfg_attr(feature = "uniffi", uniffi(default = None))]
     pub users_default: Option<i64>,
     /// The level required to change the room's name.
-    #[cfg_attr(feature = "uniffi", uniffi(default = None))]
     pub room_name: Option<i64>,
     /// The level required to change the room's avatar.
-    #[cfg_attr(feature = "uniffi", uniffi(default = None))]
     pub room_avatar: Option<i64>,
     /// The level required to change the room's topic.
-    #[cfg_attr(feature = "uniffi", uniffi(default = None))]
     pub room_topic: Option<i64>,
     /// The level required to change the space's children.
-    #[cfg_attr(feature = "uniffi", uniffi(default = None))]
     pub space_child: Option<i64>,
 }
 
