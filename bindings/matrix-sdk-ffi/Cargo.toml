@@ -42,6 +42,7 @@ rustls-tls = ["matrix-sdk/rustls-tls", "sentry?/rustls"]
 sentry = ["dep:sentry", "dep:sentry-tracing"]
 
 experimental-element-recent-emojis = ["matrix-sdk/experimental-element-recent-emojis"]
+experimental-canonical-timeline = ["matrix-sdk-ui/experimental-canonical-timeline"]
 
 [dependencies]
 anyhow.workspace = true
