@@ -17,8 +17,7 @@
 //! Handles m.replace relations (legacy edits only for Epic 1).
 
 use ruma::events::{
-    relation::Replacement,
-    room::message::{MessageType as RumaMessageType, RoomMessageEventContentWithoutRelation},
+    room::message::RoomMessageEventContentWithoutRelation,
     AnySyncMessageLikeEvent, AnySyncTimelineEvent,
 };
 

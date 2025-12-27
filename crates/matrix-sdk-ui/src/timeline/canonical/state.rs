@@ -107,6 +107,7 @@ impl CanonicalTimelineState {
     }
 
     /// Get the number of items in the timeline.
+    #[allow(dead_code)]
     pub(crate) fn len(&self) -> usize {
         self.items.len()
     }
@@ -145,5 +146,130 @@ impl CanonicalTimelineState {
     pub(crate) fn emit_reset(&self) {
         let delta = CanonicalDelta::Reset { items: self.items() };
         let _ = self.delta_tx.send(delta);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use ruma::{event_id, user_id, MilliSecondsSinceUnixEpoch};
+    use super::*;
+    use crate::timeline::canonical::{MessageContent, MessageType, ContentAvailability};
+
+    fn create_test_message(event_id: OwnedEventId, body: &str, sequence: u64) -> CanonicalMessage {
+        CanonicalMessage {
+            id: event_id,
+            sender: user_id!("@alice:example.org").to_owned(),
+            content: MessageContent {
+                msg_type: MessageType::Text,
+                body: body.to_string(),
+                formatted: None,
+            },
+            edit_state: None,
+            ordering_key: CanonicalOrderingKey::from_sequence(sequence),
+            availability: ContentAvailability::Known,
+            timestamp: Some(MilliSecondsSinceUnixEpoch::now()),
+        }
+    }
+
+    #[test]
+    fn test_stable_ordering() {
+        let mut state = CanonicalTimelineState::new();
+
+        // Insert messages in order
+        let msg1 = create_test_message(event_id!("$event1").to_owned(), "First message", 1);
+        let msg2 = create_test_message(event_id!("$event2").to_owned(), "Second message", 2);
+        let msg3 = create_test_message(event_id!("$event3").to_owned(), "Third message", 3);
+
+        state.upsert(msg1.clone());
+        state.upsert(msg2.clone());
+        state.upsert(msg3.clone());
+
+        // Verify ordering is stable
+        let items = state.items();
+        assert_eq!(items.len(), 3);
+        assert_eq!(items[0].id, msg1.id);
+        assert_eq!(items[1].id, msg2.id);
+        assert_eq!(items[2].id, msg3.id);
+    }
+
+    #[test]
+    fn test_message_update_preserves_position() {
+        let mut state = CanonicalTimelineState::new();
+
+        let msg = create_test_message(event_id!("$event1").to_owned(), "Original", 1);
+        state.upsert(msg.clone());
+
+        // Update the message (e.g., decryption)
+        let mut updated_msg = msg.clone();
+        updated_msg.content.body = "Decrypted".to_string();
+        updated_msg.availability = ContentAvailability::Known;
+
+        state.upsert(updated_msg.clone());
+
+        // Position should be unchanged
+        let items = state.items();
+        assert_eq!(items.len(), 1);
+        assert_eq!(items[0].ordering_key, msg.ordering_key);
+        assert_eq!(items[0].content.body, "Decrypted");
+    }
+
+    #[test]
+    fn test_pending_edits() {
+        let mut state = CanonicalTimelineState::new();
+
+        let parent_id = event_id!("$parent").to_owned();
+        let edit1_id = event_id!("$edit1").to_owned();
+        let edit2_id = event_id!("$edit2").to_owned();
+
+        // Add pending edits
+        state.add_pending_edit(parent_id.clone(), edit1_id.clone());
+        state.add_pending_edit(parent_id.clone(), edit2_id.clone());
+
+        // Retrieve pending edits
+        let edits = state.take_pending_edits(&parent_id);
+        assert_eq!(edits.len(), 2);
+        assert_eq!(edits[0], edit1_id);
+        assert_eq!(edits[1], edit2_id);
+
+        // Should be empty after taking
+        let edits2 = state.take_pending_edits(&parent_id);
+        assert!(edits2.is_empty());
+    }
+
+    #[test]
+    fn test_delta_broadcast() {
+        let mut state = CanonicalTimelineState::new();
+        let mut rx = state.subscribe();
+
+        // Insert a message
+        let msg = create_test_message(event_id!("$event1").to_owned(), "Test", 1);
+        state.upsert(msg.clone());
+
+        // Should receive an Insert delta
+        let delta = rx.try_recv().unwrap();
+        match delta {
+            CanonicalDelta::Insert { position, item } => {
+                assert_eq!(position, msg.ordering_key);
+                assert_eq!(item.id, msg.id);
+            }
+            _ => panic!("Expected Insert delta"),
+        }
+    }
+
+    #[test]
+    fn test_event_id_lookup() {
+        let mut state = CanonicalTimelineState::new();
+
+        let msg = create_test_message(event_id!("$event1").to_owned(), "Test", 1);
+        state.upsert(msg.clone());
+
+        // Should be able to look up by event ID
+        let found = state.get_by_event_id(&msg.id);
+        assert!(found.is_some());
+        assert_eq!(found.unwrap().id, msg.id);
+
+        // Non-existent event should return None
+        let not_found = state.get_by_event_id(&event_id!("$notfound").to_owned());
+        assert!(not_found.is_none());
     }
 }
