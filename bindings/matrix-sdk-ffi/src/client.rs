@@ -2288,7 +2288,6 @@ pub struct CreateRoomParameters {
     pub name: Option<String>,
     pub topic: Option<String>,
     pub is_encrypted: bool,
-    #[uniffi(default = false)]
     pub is_direct: bool,
     pub visibility: RoomVisibility,
     pub preset: RoomPreset,
