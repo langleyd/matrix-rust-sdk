@@ -2286,24 +2286,17 @@ impl From<PowerLevels> for RoomPowerLevelsEventContent {
 #[derive(uniffi::Record)]
 pub struct CreateRoomParameters {
     pub name: Option<String>,
-    #[uniffi(default = None)]
     pub topic: Option<String>,
     pub is_encrypted: bool,
     #[uniffi(default = false)]
     pub is_direct: bool,
     pub visibility: RoomVisibility,
     pub preset: RoomPreset,
-    #[uniffi(default = None)]
     pub invite: Option<Vec<String>>,
-    #[uniffi(default = None)]
     pub avatar: Option<String>,
-    #[uniffi(default = None)]
     pub power_level_content_override: Option<PowerLevels>,
-    #[uniffi(default = None)]
     pub join_rule_override: Option<JoinRule>,
-    #[uniffi(default = None)]
     pub history_visibility_override: Option<RoomHistoryVisibility>,
-    #[uniffi(default = None)]
     pub canonical_alias: Option<String>,
 }
 
