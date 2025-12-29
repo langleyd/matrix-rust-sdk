@@ -783,6 +783,43 @@ impl<P: RoomDataProvider> TimelineController<P> {
         self.state.read().await.items.subscribe().filter_map(f)
     }
 
+    /// Get all canonical timeline items (Epic 1 POC).
+    #[cfg(feature = "experimental-canonical-timeline")]
+    pub(super) async fn canonical_items(&self) -> Vec<crate::timeline::canonical::CanonicalMessage> {
+        let state = self.state.read().await;
+        if let Some(ref canonical_state) = state.canonical_state {
+            canonical_state.lock().unwrap().items()
+        } else {
+            vec![]
+        }
+    }
+
+    /// Subscribe to canonical timeline updates (Epic 1 POC).
+    #[cfg(feature = "experimental-canonical-timeline")]
+    pub(super) async fn subscribe_canonical(&self) -> (Vec<crate::timeline::canonical::CanonicalMessage>, tokio::sync::broadcast::Receiver<crate::timeline::canonical::CanonicalDelta>) {
+        let state = self.state.read().await;
+        if let Some(ref canonical_state) = state.canonical_state {
+            let guard = canonical_state.lock().unwrap();
+            let items = guard.items();
+            let rx = guard.subscribe();
+            (items, rx)
+        } else {
+            let (_, rx) = tokio::sync::broadcast::channel(128);
+            (vec![], rx)
+        }
+    }
+
+    /// Get a canonical message by event ID (Epic 1 POC).
+    #[cfg(feature = "experimental-canonical-timeline")]
+    pub(super) async fn canonical_item_by_id(&self, event_id: &EventId) -> Option<crate::timeline::canonical::CanonicalMessage> {
+        let state = self.state.read().await;
+        if let Some(ref canonical_state) = state.canonical_state {
+            canonical_state.lock().unwrap().get_by_event_id(&event_id.to_owned()).cloned()
+        } else {
+            None
+        }
+    }
+
     /// Toggle a reaction locally.
     ///
     /// Returns true if the reaction was added, false if it was removed.
