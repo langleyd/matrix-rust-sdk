@@ -49,15 +49,9 @@
 //! - [`CanonicalDelta`]: Incremental change (Insert/Update/Remove/Reset)
 //! - [`ContentAvailability`]: Known/Encrypted/Redacted state tracking
 //!
-//! ## Adapters
-//!
-//! Event processing is delegated to specialized adapters:
-//! - [`MessageAdapter`]: Processes m.room.message, m.room.encrypted, redactions
-//! - [`EditAdapter`]: Processes m.replace relations (legacy edits)
-//!
 //! ## State Management
 //!
-//! [`CanonicalTimelineState`] maintains in-memory timeline with:
+//! Timeline state is now managed by the `matrix-sdk-canonical` crate, which provides:
 //! - BTreeMap storage for ordered items
 //! - Broadcast channels for delta subscriptions
 //! - Pending edit buffer for out-of-order arrivals
@@ -123,19 +117,13 @@
 
 #![cfg(feature = "experimental-canonical-timeline")]
 
-mod adapters;
-mod delta;
-mod ordering;
-mod state;
-mod types;
-
-pub use delta::CanonicalDelta;
-pub use ordering::CanonicalOrderingKey;
-pub use types::{
-    CanonicalEditState, CanonicalMessage, ContentAvailability, EditMetadata, FormattedBody,
-    MessageContent, MessageType,
+// Re-export all types from the matrix-sdk-canonical crate for public API
+pub use matrix_sdk_canonical::{
+    CanonicalDelta, CanonicalEditState, CanonicalMessage, CanonicalOrderingKey,
+    ContentAvailability, EditMetadata, FormattedBody, MessageContent, MessageType,
 };
 
-// Internal exports for timeline integration
-pub(crate) use adapters::{edit::EditAdapter, message::MessageAdapter, AdapterContext, EventAdapter};
-pub(crate) use state::CanonicalTimelineState;
+// Internal exports for timeline integration (not part of public API)
+pub(crate) use super::canonical_bridge::{
+    AdapterContext, CanonicalTimelineState, EditAdapter, EventAdapter, MessageAdapter, Profile,
+};

@@ -3268,6 +3268,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "matrix-sdk-canonical"
+version = "0.1.0"
+dependencies = [
+ "matrix-sdk-base",
+ "matrix-sdk-common",
+ "ruma",
+ "serde",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "matrix-sdk-common"
 version = "0.16.0"
 dependencies = [
@@ -3397,6 +3409,7 @@ dependencies = [
  "log-panics",
  "matrix-sdk",
  "matrix-sdk-base",
+ "matrix-sdk-canonical",
  "matrix-sdk-common",
  "matrix-sdk-ffi-macros",
  "matrix-sdk-ui",
@@ -3656,6 +3669,7 @@ dependencies = [
  "itertools 0.14.0",
  "matrix-sdk",
  "matrix-sdk-base",
+ "matrix-sdk-canonical",
  "matrix-sdk-common",
  "matrix-sdk-test",
  "matrix-sdk-test-utils",

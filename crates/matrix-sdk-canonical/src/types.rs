@@ -17,7 +17,7 @@
 use matrix_sdk_base::crypto::types::events::UtdCause;
 use ruma::{MilliSecondsSinceUnixEpoch, OwnedEventId, OwnedUserId};
 
-use super::CanonicalOrderingKey;
+use crate::timeline::CanonicalOrderingKey;
 
 /// Content availability state for a canonical timeline item.
 ///

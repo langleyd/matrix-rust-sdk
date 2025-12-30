@@ -26,21 +26,22 @@ use ruma::events::{
 };
 
 use super::{AdapterContext, EventAdapter};
-use crate::timeline::canonical::{
+use crate::types::{
     CanonicalMessage, ContentAvailability, FormattedBody, MessageContent, MessageType,
 };
 
 /// Adapter for m.room.message events.
 #[derive(Debug)]
-pub(crate) struct MessageAdapter;
+pub struct MessageAdapter;
 
 impl MessageAdapter {
-    pub(crate) fn new() -> Self {
+    /// Create a new MessageAdapter.
+    pub fn new() -> Self {
         MessageAdapter
     }
 
     /// Convert Ruma message type to canonical message type.
-    pub(super) fn map_message_type(ruma_type: &RumaMessageType) -> MessageType {
+    pub fn map_message_type(ruma_type: &RumaMessageType) -> MessageType {
         match ruma_type {
             RumaMessageType::Text(_) | RumaMessageType::Notice(_) | RumaMessageType::Emote(_) => {
                 MessageType::Text

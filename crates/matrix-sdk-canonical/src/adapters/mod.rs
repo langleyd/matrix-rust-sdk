@@ -18,16 +18,25 @@
 
 use ruma::events::AnySyncTimelineEvent;
 
-use super::{state::CanonicalTimelineState, CanonicalOrderingKey};
+use crate::timeline::{state::CanonicalTimelineState, CanonicalOrderingKey};
 
-pub(crate) mod edit;
-pub(crate) mod message;
+pub mod edit;
+pub mod message;
+
+/// Simplified profile information for sender.
+#[derive(Debug, Clone)]
+pub struct Profile {
+    /// Display name if available
+    pub display_name: Option<String>,
+    /// Avatar URL if available
+    pub avatar_url: Option<String>,
+}
 
 /// Context provided to event adapters.
 ///
 /// Contains state and dependencies needed for event processing.
 #[derive(Debug)]
-pub(crate) struct AdapterContext<'a> {
+pub struct AdapterContext<'a> {
     /// Canonical timeline state (for lookups and mutations)
     pub state: &'a mut CanonicalTimelineState,
 
@@ -35,13 +44,13 @@ pub(crate) struct AdapterContext<'a> {
     pub ordering_key: CanonicalOrderingKey,
 
     /// Sender profile (display name and avatar)
-    pub sender_profile: Option<crate::timeline::Profile>,
+    pub sender_profile: Option<Profile>,
 }
 
 /// Trait for adapting raw events into canonical timeline updates.
 ///
 /// Each adapter handles a specific category of Matrix events.
-pub(crate) trait EventAdapter {
+pub trait EventAdapter {
     /// Process an event and update canonical state.
     ///
     /// Returns true if the event was processed, false if ignored.

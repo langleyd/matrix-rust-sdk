@@ -42,7 +42,7 @@ rustls-tls = ["matrix-sdk/rustls-tls", "sentry?/rustls"]
 sentry = ["dep:sentry", "dep:sentry-tracing"]
 
 experimental-element-recent-emojis = ["matrix-sdk/experimental-element-recent-emojis"]
-experimental-canonical-timeline = ["matrix-sdk-ui/experimental-canonical-timeline"]
+experimental-canonical-timeline = ["matrix-sdk-ui/experimental-canonical-timeline", "dep:matrix-sdk-canonical"]
 
 [dependencies]
 anyhow.workspace = true
@@ -61,6 +61,7 @@ matrix-sdk = { workspace = true, features = [
     "federation-api",
 ] }
 matrix-sdk-base.workspace = true
+matrix-sdk-canonical = { workspace = true, optional = true }
 matrix-sdk-common.workspace = true
 matrix-sdk-ffi-macros.workspace = true
 matrix-sdk-ui = { workspace = true, features = ["uniffi"] }

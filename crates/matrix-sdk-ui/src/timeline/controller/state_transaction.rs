@@ -1104,11 +1104,19 @@ impl<'a, P: RoomDataProvider> TimelineStateTransaction<'a, P> {
                 ordering_key.as_u64(),
                 if is_prepend { "prepended" } else { "appended" });
 
+            // Convert UI Profile to canonical Profile
+            let canonical_sender_profile = sender_profile.as_ref().map(|p| {
+                crate::timeline::canonical::Profile {
+                    display_name: p.display_name.clone(),
+                    avatar_url: p.avatar_url.as_ref().map(|url| url.to_string()),
+                }
+            });
+
             // Create adapter context with profile data
             let mut context = AdapterContext {
                 state: &mut *canonical_state,
                 ordering_key,
-                sender_profile,
+                sender_profile: canonical_sender_profile,
             };
 
             // Process through adapters (order matters: message first, then edits)

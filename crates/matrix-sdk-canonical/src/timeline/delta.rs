@@ -14,7 +14,8 @@
 
 //! Canonical timeline delta types for incremental updates.
 
-use super::{CanonicalMessage, CanonicalOrderingKey};
+use super::CanonicalOrderingKey;
+use crate::types::CanonicalMessage;
 
 /// Incremental change to the canonical timeline.
 ///

@@ -22,14 +22,15 @@ use ruma::events::{
 };
 
 use super::{message::MessageAdapter, AdapterContext, EventAdapter};
-use crate::timeline::canonical::{CanonicalEditState, EditMetadata, MessageContent};
+use crate::types::{CanonicalEditState, EditMetadata, MessageContent};
 
 /// Adapter for edit events (m.replace relations).
 #[derive(Debug)]
-pub(crate) struct EditAdapter;
+pub struct EditAdapter;
 
 impl EditAdapter {
-    pub(crate) fn new() -> Self {
+    /// Create a new EditAdapter.
+    pub fn new() -> Self {
         EditAdapter
     }
 

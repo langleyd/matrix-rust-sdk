@@ -22,14 +22,15 @@ use std::collections::BTreeMap;
 use ruma::OwnedEventId;
 use tokio::sync::broadcast;
 
-use super::{CanonicalDelta, CanonicalMessage, CanonicalOrderingKey};
+use super::{CanonicalDelta, CanonicalOrderingKey};
+use crate::types::CanonicalMessage;
 
 /// In-memory canonical timeline state.
 ///
 /// Epic 1 POC: In-memory only, no persistence.
 /// Stores canonical messages ordered by sequence number.
 #[derive(Debug)]
-pub(crate) struct CanonicalTimelineState {
+pub struct CanonicalTimelineState {
     /// Canonical messages ordered by sequence
     items: BTreeMap<u64, CanonicalMessage>,
 
@@ -52,7 +53,7 @@ pub(crate) struct CanonicalTimelineState {
 
 impl CanonicalTimelineState {
     /// Create a new empty canonical timeline state.
-    pub(crate) fn new() -> Self {
+    pub fn new() -> Self {
         let (delta_tx, _) = broadcast::channel(128);
         // Start from middle of u64 range to allow both prepending and appending
         const MID_POINT: u64 = u64::MAX / 2;
@@ -67,32 +68,32 @@ impl CanonicalTimelineState {
     }
 
     /// Subscribe to canonical timeline deltas.
-    pub(crate) fn subscribe(&self) -> broadcast::Receiver<CanonicalDelta> {
+    pub fn subscribe(&self) -> broadcast::Receiver<CanonicalDelta> {
         self.delta_tx.subscribe()
     }
 
     /// Allocate next ordering key for appending (new events).
-    pub(crate) fn next_ordering_key(&mut self) -> CanonicalOrderingKey {
+    pub fn next_ordering_key(&mut self) -> CanonicalOrderingKey {
         let key = self.next_sequence;
         self.next_sequence += 1;
         CanonicalOrderingKey::from_sequence(key)
     }
 
     /// Allocate next ordering key for prepending (paginated older events).
-    pub(crate) fn prepend_ordering_key(&mut self) -> CanonicalOrderingKey {
+    pub fn prepend_ordering_key(&mut self) -> CanonicalOrderingKey {
         self.min_sequence -= 1;
         CanonicalOrderingKey::from_sequence(self.min_sequence)
     }
 
     /// Check if an ordering key already exists.
-    pub(crate) fn has_ordering_key(&self, key: u64) -> bool {
+    pub fn has_ordering_key(&self, key: u64) -> bool {
         self.items.contains_key(&key)
     }
 
     /// Insert or update a canonical message.
     ///
     /// Returns true if this was a new insertion, false if it was an update.
-    pub(crate) fn upsert(&mut self, message: CanonicalMessage) -> bool {
+    pub fn upsert(&mut self, message: CanonicalMessage) -> bool {
         let sequence = message.ordering_key.as_u64();
         let event_id = message.id.clone();
 
@@ -113,41 +114,41 @@ impl CanonicalTimelineState {
     }
 
     /// Get a canonical message by event ID.
-    pub(crate) fn get_by_event_id(&self, event_id: &OwnedEventId) -> Option<&CanonicalMessage> {
+    pub fn get_by_event_id(&self, event_id: &OwnedEventId) -> Option<&CanonicalMessage> {
         let sequence = self.event_to_sequence.get(event_id)?;
         self.items.get(sequence)
     }
 
     /// Get all canonical messages in order.
-    pub(crate) fn items(&self) -> Vec<CanonicalMessage> {
+    pub fn items(&self) -> Vec<CanonicalMessage> {
         self.items.values().cloned().collect()
     }
 
     /// Get the number of items in the timeline.
     #[allow(dead_code)]
-    pub(crate) fn len(&self) -> usize {
+    pub fn len(&self) -> usize {
         self.items.len()
     }
 
     /// Check if the timeline is empty.
     #[allow(dead_code)]
-    pub(crate) fn is_empty(&self) -> bool {
+    pub fn is_empty(&self) -> bool {
         self.items.is_empty()
     }
 
     /// Register a pending edit that arrived before its parent.
-    pub(crate) fn add_pending_edit(&mut self, parent_event_id: OwnedEventId, edit_event_id: OwnedEventId) {
+    pub fn add_pending_edit(&mut self, parent_event_id: OwnedEventId, edit_event_id: OwnedEventId) {
         self.pending_edits.entry(parent_event_id).or_insert_with(Vec::new).push(edit_event_id);
     }
 
     /// Get and remove pending edits for a parent event.
-    pub(crate) fn take_pending_edits(&mut self, parent_event_id: &OwnedEventId) -> Vec<OwnedEventId> {
+    pub fn take_pending_edits(&mut self, parent_event_id: &OwnedEventId) -> Vec<OwnedEventId> {
         self.pending_edits.remove(parent_event_id).unwrap_or_default()
     }
 
     /// Remove a canonical message by ordering key.
     #[allow(dead_code)]
-    pub(crate) fn remove(&mut self, position: CanonicalOrderingKey) -> Option<CanonicalMessage> {
+    pub fn remove(&mut self, position: CanonicalOrderingKey) -> Option<CanonicalMessage> {
         let seq = position.as_u64();
         let message = self.items.remove(&seq)?;
         self.event_to_sequence.remove(&message.id);
@@ -160,7 +161,7 @@ impl CanonicalTimelineState {
 
     /// Emit a full reset delta with all current items.
     #[allow(dead_code)]
-    pub(crate) fn emit_reset(&self) {
+    pub fn emit_reset(&self) {
         let delta = CanonicalDelta::Reset { items: self.items() };
         let _ = self.delta_tx.send(delta);
     }
@@ -170,7 +171,7 @@ impl CanonicalTimelineState {
 mod tests {
     use ruma::{event_id, user_id, MilliSecondsSinceUnixEpoch};
     use super::*;
-    use crate::timeline::canonical::{MessageContent, MessageType, ContentAvailability};
+    use crate::types::{MessageContent, MessageType, ContentAvailability};
 
     fn create_test_message(event_id: OwnedEventId, body: &str, sequence: u64) -> CanonicalMessage {
         CanonicalMessage {

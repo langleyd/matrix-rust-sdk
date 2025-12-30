@@ -71,6 +71,8 @@ mod algorithms;
 mod builder;
 #[cfg(feature = "experimental-canonical-timeline")]
 pub mod canonical;
+#[cfg(feature = "experimental-canonical-timeline")]
+mod canonical_bridge;
 mod controller;
 mod date_dividers;
 mod error;
