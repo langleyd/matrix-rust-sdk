@@ -1,0 +1,22 @@
+[package]
+name = "matrix-sdk-canonical"
+description = "Canonical timeline abstraction for Matrix events (experimental)"
+version = "0.1.0"
+edition = "2024"
+repository = "https://github.com/matrix-org/matrix-rust-sdk"
+license = "Apache-2.0"
+
+[features]
+default = []
+experimental-canonical-timeline = []
+
+[dependencies]
+# Workspace dependencies
+matrix-sdk-base = { workspace = true, features = ["e2e-encryption"] }
+matrix-sdk-common.workspace = true
+ruma.workspace = true
+serde.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+
+# Additional dependencies needed for canonical timeline

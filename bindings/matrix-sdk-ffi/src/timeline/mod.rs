@@ -80,6 +80,9 @@ mod content;
 mod msg_like;
 mod reply;
 
+#[cfg(feature = "experimental-canonical-timeline")]
+pub mod canonical;
+
 use matrix_sdk::utils::formatted_body_from;
 use matrix_sdk_common::{SendOutsideWasm, SyncOutsideWasm};
 
@@ -742,6 +745,99 @@ impl Timeline {
     ) -> Option<Arc<RoomMessageEventContentWithoutRelation>> {
         let msg_type: Option<MessageType> = msg_type.try_into().ok();
         msg_type.map(|m| Arc::new(RoomMessageEventContentWithoutRelation::new(m)))
+    }
+
+    /// Get snapshot of all canonical timeline items.
+    ///
+    /// Returns the current state of the canonical timeline with stable ordering.
+    ///
+    /// # Epic 1 POC Limitations
+    ///
+    /// - Basic messages only (m.room.message)
+    /// - Legacy edits only (reactions deferred to Epic 2)
+    /// - No thread semantics
+    ///
+    /// # Experimental API
+    ///
+    /// This API is experimental and requires the `experimental-canonical-timeline`
+    /// feature flag. It may change or be removed in future versions.
+    #[cfg(feature = "experimental-canonical-timeline")]
+    pub async fn canonical_items(&self) -> Vec<canonical::CanonicalMessage> {
+        self.inner
+            .canonical_items()
+            .await
+            .into_iter()
+            .map(Into::into)
+            .collect()
+    }
+
+    /// Subscribe to canonical timeline updates.
+    ///
+    /// Returns a handle that allows canceling the subscription. Deltas will be
+    /// delivered to the provided listener as new events arrive, decrypt, or are edited.
+    ///
+    /// # Epic 1 POC Limitations
+    ///
+    /// Same as [`canonical_items`].
+    ///
+    /// # Experimental API
+    ///
+    /// This API is experimental and requires the `experimental-canonical-timeline`
+    /// feature flag. It may change or be removed in future versions.
+    #[cfg(feature = "experimental-canonical-timeline")]
+    pub async fn subscribe_canonical(
+        &self,
+        listener: Box<dyn canonical::CanonicalTimelineListener>,
+    ) -> Arc<canonical::CanonicalTimelineListenerHandle> {
+        let (initial_items, mut delta_stream) = self.inner.subscribe_canonical().await;
+
+        // Send initial reset delta with all items
+        listener.on_update(canonical::CanonicalDelta::Reset {
+            items: initial_items.into_iter().map(Into::into).collect(),
+        });
+
+        // Spawn task to forward deltas to listener
+        let handle = get_runtime_handle().spawn(async move {
+            loop {
+                match delta_stream.recv().await {
+                    Ok(delta) => {
+                        listener.on_update(delta.into());
+                    }
+                    Err(tokio::sync::broadcast::error::RecvError::Lagged(count)) => {
+                        warn!("Canonical timeline listener lagged by {} deltas", count);
+                        // Continue listening after lag
+                    }
+                    Err(tokio::sync::broadcast::error::RecvError::Closed) => {
+                        // Stream closed, stop listening
+                        break;
+                    }
+                }
+            }
+        });
+
+        canonical::CanonicalTimelineListenerHandle::new(handle.abort_handle())
+    }
+
+    /// Get a canonical message by event ID.
+    ///
+    /// Returns None if the event is not in the canonical timeline or hasn't
+    /// been processed yet.
+    ///
+    /// # Epic 1 POC Limitations
+    ///
+    /// Same as [`canonical_items`].
+    ///
+    /// # Experimental API
+    ///
+    /// This API is experimental and requires the `experimental-canonical-timeline`
+    /// feature flag. It may change or be removed in future versions.
+    #[cfg(feature = "experimental-canonical-timeline")]
+    pub async fn canonical_item_by_id(
+        &self,
+        event_id: String,
+    ) -> Result<Option<canonical::CanonicalMessage>, ClientError> {
+        let event_id = <&EventId>::try_from(event_id.as_str())?;
+        Ok(self.inner.canonical_item_by_id(event_id).await.map(Into::into))
     }
 }
 

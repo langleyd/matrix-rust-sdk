@@ -32,6 +32,11 @@ experimental-encrypted-state-events = [
     "ruma/unstable-msc4362"
 ]
 
+# Enable experimental canonical timeline POC (Epic 1).
+# Provides stable ordering and unified edit handling for timeline items.
+# This is a proof-of-concept and may change or be removed.
+experimental-canonical-timeline = ["dep:matrix-sdk-canonical"]
+
 [dependencies]
 as_variant.workspace = true
 async-rx = { workspace = true, features = ["alloc"] }
@@ -52,6 +57,7 @@ indexmap.workspace = true
 itertools.workspace = true
 matrix-sdk = { workspace = true, features = ["e2e-encryption"] }
 matrix-sdk-base.workspace = true
+matrix-sdk-canonical = { workspace = true, optional = true }
 matrix-sdk-common.workspace = true
 mime.workspace = true
 once_cell.workspace = true

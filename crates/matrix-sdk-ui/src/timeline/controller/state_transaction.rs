@@ -67,6 +67,10 @@ pub(in crate::timeline) struct TimelineStateTransaction<'a, P: RoomDataProvider>
 
     /// The kind of focus of this timeline.
     pub focus: &'a TimelineFocusKind<P>,
+
+    /// Canonical timeline state (Epic 1 POC).
+    #[cfg(feature = "experimental-canonical-timeline")]
+    pub(super) canonical_state: Option<&'a std::sync::Arc<std::sync::Mutex<crate::timeline::canonical::CanonicalTimelineState>>>,
 }
 
 impl<'a, P: RoomDataProvider> TimelineStateTransaction<'a, P> {
@@ -75,6 +79,8 @@ impl<'a, P: RoomDataProvider> TimelineStateTransaction<'a, P> {
         items: &'a mut ObservableItems,
         meta: &'a mut TimelineMetadata,
         focus: &'a TimelineFocusKind<P>,
+        #[cfg(feature = "experimental-canonical-timeline")]
+        canonical_state: Option<&'a std::sync::Arc<std::sync::Mutex<crate::timeline::canonical::CanonicalTimelineState>>>,
     ) -> Self {
         let previous_meta = meta;
         let meta = previous_meta.clone();
@@ -86,6 +92,8 @@ impl<'a, P: RoomDataProvider> TimelineStateTransaction<'a, P> {
             previous_meta,
             meta,
             focus,
+            #[cfg(feature = "experimental-canonical-timeline")]
+            canonical_state,
         }
     }
 
@@ -106,6 +114,10 @@ impl<'a, P: RoomDataProvider> TimelineStateTransaction<'a, P> {
             match diff {
                 VectorDiff::Append { values: events } => {
                     for event in events {
+                        // Epic 1 POC: Process for canonical timeline (append)
+                        #[cfg(feature = "experimental-canonical-timeline")]
+                        self.process_canonical_timeline_diff(&event, false, room_data_provider, &mut cached_profiles).await;
+
                         self.handle_remote_event(
                             event,
                             TimelineItemPosition::End { origin },
@@ -119,6 +131,10 @@ impl<'a, P: RoomDataProvider> TimelineStateTransaction<'a, P> {
                 }
 
                 VectorDiff::PushFront { value: event } => {
+                    // Epic 1 POC: Process for canonical timeline (prepend)
+                    #[cfg(feature = "experimental-canonical-timeline")]
+                    self.process_canonical_timeline_diff(&event, true, room_data_provider, &mut cached_profiles).await;
+
                     self.handle_remote_event(
                         event,
                         TimelineItemPosition::Start { origin },
@@ -131,6 +147,10 @@ impl<'a, P: RoomDataProvider> TimelineStateTransaction<'a, P> {
                 }
 
                 VectorDiff::PushBack { value: event } => {
+                    // Epic 1 POC: Process for canonical timeline (append)
+                    #[cfg(feature = "experimental-canonical-timeline")]
+                    self.process_canonical_timeline_diff(&event, false, room_data_provider, &mut cached_profiles).await;
+
                     self.handle_remote_event(
                         event,
                         TimelineItemPosition::End { origin },
@@ -1117,6 +1137,97 @@ impl<'a, P: RoomDataProvider> TimelineStateTransaction<'a, P> {
                 let item = item.with_kind(cloned_event);
                 self.items.replace(idx, item);
             }
+        }
+    }
+
+    /// Process a TimelineEvent diff for canonical timeline (Epic 1 POC).
+    ///
+    /// This is called at the VectorDiff level, before individual event processing,
+    /// so we know whether this is a prepend (pagination) or append (new event).
+    #[cfg(feature = "experimental-canonical-timeline")]
+    async fn process_canonical_timeline_diff(
+        &mut self,
+        timeline_event: &TimelineEvent,
+        is_prepend: bool,
+        room_data_provider: &impl RoomDataProvider,
+        profiles: &mut HashMap<OwnedUserId, Option<Profile>>,
+    ) {
+        use crate::timeline::canonical::{AdapterContext, EventAdapter, EditAdapter, MessageAdapter};
+
+        // Extract the sync event from the TimelineEvent
+        let event = match timeline_event.raw().deserialize() {
+            Ok(event) => event,
+            Err(e) => {
+                tracing::warn!("🔵 Canonical timeline: failed to deserialize event: {}", e);
+                return;
+            }
+        };
+
+        // Get sender from event
+        let sender = event.sender().to_owned();
+
+        // Get sender profile (use cached or fetch)
+        let sender_profile = if let Some(profile) = profiles.get(&sender) {
+            profile.clone()
+        } else {
+            let profile = room_data_provider.profile_from_user_id(&sender).await;
+            profiles.insert(sender.clone(), profile.clone());
+            profile
+        };
+
+        tracing::info!("🔵 Canonical timeline: processing {} event type={:?}",
+            if is_prepend { "PREPEND" } else { "APPEND" },
+            event.event_type());
+
+        if let Some(ref canonical_state_arc) = self.canonical_state {
+            let mut canonical_state = canonical_state_arc.lock().unwrap();
+
+            // Allocate ordering key based on whether this is prepend or append
+            let ordering_key = if is_prepend {
+                // Older event from pagination - use lower key
+                canonical_state.prepend_ordering_key()
+            } else {
+                // Newer event from sync - use higher key
+                canonical_state.next_ordering_key()
+            };
+
+            tracing::info!("🔵 Canonical timeline: allocated ordering_key={} for {} event",
+                ordering_key.as_u64(),
+                if is_prepend { "prepended" } else { "appended" });
+
+            // Convert UI Profile to canonical Profile
+            let canonical_sender_profile = sender_profile.as_ref().map(|p| {
+                crate::timeline::canonical::Profile {
+                    display_name: p.display_name.clone(),
+                    avatar_url: p.avatar_url.as_ref().map(|url| url.to_string()),
+                }
+            });
+
+            // Create adapter context with profile data
+            let mut context = AdapterContext {
+                state: &mut *canonical_state,
+                ordering_key,
+                sender_profile: canonical_sender_profile,
+            };
+
+            // Process through adapters (order matters: message first, then edits)
+            let message_adapter = MessageAdapter::new();
+            let edit_adapter = EditAdapter::new();
+
+            // Try message adapter first
+            if message_adapter.process(&event, &mut context) {
+                tracing::info!("🔵 Canonical timeline: processed message event, total items={}", canonical_state.len());
+                return;
+            }
+
+            // Try edit adapter
+            if edit_adapter.process(&event, &mut context) {
+                tracing::info!("🔵 Canonical timeline: processed edit event");
+                return;
+            }
+
+            // Event not handled by any adapter
+            tracing::debug!("Canonical timeline: event not handled by adapters");
         }
     }
 }
